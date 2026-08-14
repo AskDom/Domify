@@ -13,31 +13,45 @@ export function InboxProvider({ children }) {
   const socketRef = useRef(null);
 
   // ── FETCH ──────────────────────────────────────────────────────────────────
+  // El backend pagina con ?limit=&cursor= (keyset sobre createdAt/id). Acá
+  // recorremos las páginas hasta agotar (topado en MAX_MESSAGES para no
+  // traer un historial infinito de un golpe) — mismo resultado que antes,
+  // pero sin depender de un request gigante.
+  const normalizeMessage = (m) => ({
+    id:            m.id,
+    fromId:        m.fromId,
+    fromName:      m.from?.name  || "Usuario",
+    fromAvatar:    m.from?.avatar || null,
+    toId:          m.toId,
+    toName:        m.to?.name    || "Usuario",
+    toAvatar:      m.to?.avatar || null,
+    propertyId:    m.propertyId,
+    propertyTitle: m.property?.title || "",
+    text:          m.text,
+    replyToId:     m.replyToId,
+    createdAt:     m.createdAt,
+    read:          m.read,
+  });
+
   const fetchMessages = useCallback(async () => {
     if (!currentUser) return;
     setLoadingMessages(true);
     try {
-      const res  = await fetch(`${API_URL}/api/messages`, {
-        credentials: "include",
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const normalized = data.messages.map((m) => ({
-        id:            m.id,
-        fromId:        m.fromId,
-        fromName:      m.from?.name  || "Usuario",
-        fromAvatar:    m.from?.avatar || null,
-        toId:          m.toId,
-        toName:        m.to?.name    || "Usuario",
-        toAvatar:      m.to?.avatar || null,
-        propertyId:    m.propertyId,
-        propertyTitle: m.property?.title || "",
-        text:          m.text,
-        replyToId:     m.replyToId,
-        createdAt:     m.createdAt,
-        read:          m.read,
-      }));
-      setMessages(normalized);
+      const all = [];
+      let cursor;
+      for (let i = 0; i < 10; i++) { // 10 páginas × 500 = techo de 5000 mensajes
+        const params = new URLSearchParams({ limit: "500" });
+        if (cursor) params.set("cursor", cursor);
+        const res = await fetch(`${API_URL}/api/messages?${params}`, {
+          credentials: "include",
+        });
+        if (!res.ok) break;
+        const data = await res.json();
+        all.push(...data.messages.map(normalizeMessage));
+        if (!data.pagination?.hasMore || !data.pagination?.nextCursor) break;
+        cursor = data.pagination.nextCursor;
+      }
+      setMessages(all);
     } catch (err) {
       console.error("fetchMessages error:", err);
     } finally {

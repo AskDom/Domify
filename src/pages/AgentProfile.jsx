@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ShieldCheck, Star, Home as HomeIcon, User as UserIcon } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Seo from "../components/Seo";
 import PropertyCard from "../components/PropertyCard";
 import { useProperties } from "../context/PropertiesContext";
 import { useToast } from "../context/ToastContext";
@@ -93,6 +94,12 @@ export default function AgentProfile() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+      <Seo
+        title={`${user.name} — ${roleConfig.label} en Domify`}
+        description={`Propiedades publicadas por ${user.name} en Domify.${stats.avgRating ? ` ${stats.avgRating}★ (${stats.reviewsCount} reseñas).` : ""}`}
+        path={`/agent/${user.id}`}
+        image={user.avatar}
+      />
       <Navbar />
 
       <motion.div

@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, Marker, Circle, Tooltip, Popup, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -10,6 +13,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Search, X } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Seo from "../components/Seo";
 import PropertyCardSkeleton from "../components/PropertyCardSkeleton";
 import PropertyCard from "../components/PropertyCard";
 import { useProperties } from "../context/PropertiesContext";
@@ -26,6 +30,18 @@ L.Icon.Default.mergeOptions({
   iconUrl:       markerIcon,
   shadowUrl:     markerShadow,
 });
+
+// Ícono de cluster con la misma paleta que los pines individuales — sin esto
+// leaflet.markercluster dibuja círculos amarillo/naranja por defecto.
+function clusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 34 : count < 100 ? 42 : 50;
+  return L.divIcon({
+    className: "",
+    html: `<div style="background:#111827;color:white;width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.25);border:2px solid white">${count}</div>`,
+    iconSize: L.point(size, size),
+  });
+}
 
 // Ícono de precio en el mapa
 function createPriceIcon(price, status, isActive, currency) {
@@ -168,6 +184,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+      <Seo
+        description="Encontrá apartamentos, casas y villas en venta o renta en toda República Dominicana. Publicá tu propiedad o buscá tu próximo hogar en Domify."
+        path="/"
+      />
       <Navbar activeTab={activeTab} onTabChange={handleTabChange} />
 
       {/* ════════════════════════════════════════════════════════════
@@ -478,8 +498,9 @@ export default function Home() {
               >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                 <MapFit properties={filtered.filter(p => p.lat && p.lng)} />
-                {filtered.filter(p => p.lat && p.lng).map((prop) => {
-                  const popup = (
+                {(() => {
+                  const visible = filtered.filter(p => p.lat && p.lng);
+                  const popupFor = (prop) => (
                     <Popup>
                       <div className="text-sm min-w-[180px]">
                         {prop.image && (
@@ -516,19 +537,34 @@ export default function Home() {
                     </Popup>
                   );
 
+                  // Agrupados igual que en SearchResults: con muchas propiedades
+                  // visibles, un Marker de DOM por cada una congela el mapa
+                  // (ver prueba de carga — 1 fps con 10k pines sin agrupar).
                   return currentUser ? (
-                    <Marker
-                      key={prop.id}
-                      position={[prop.lat, prop.lng]}
-                      icon={createPriceIcon(prop.price, prop.status, activePin === prop.id, prop.currency)}
-                      eventHandlers={{
-                        mouseover: () => setActivePin(prop.id),
-                        mouseout:  () => setActivePin(null),
-                      }}
+                    <MarkerClusterGroup
+                      chunkedLoading
+                      maxClusterRadius={60}
+                      disableClusteringAtZoom={16}
+                      spiderfyOnMaxZoom
+                      iconCreateFunction={clusterIcon}
                     >
-                      {popup}
-                    </Marker>
-                  ) : (
+                      {visible.map((prop) => (
+                        <Marker
+                          key={prop.id}
+                          position={[prop.lat, prop.lng]}
+                          icon={createPriceIcon(prop.price, prop.status, activePin === prop.id, prop.currency)}
+                          eventHandlers={{
+                            mouseover: () => setActivePin(prop.id),
+                            mouseout:  () => setActivePin(null),
+                          }}
+                        >
+                          {popupFor(prop)}
+                        </Marker>
+                      ))}
+                    </MarkerClusterGroup>
+                  ) : visible.map((prop) => (
+                    // Zonas aproximadas: son Circle, no Marker, el plugin de
+                    // clustering no las agrupa — se quedan sueltas como antes.
                     <Circle
                       key={prop.id}
                       center={approxZoneCenter(prop.lat, prop.lng)}
@@ -544,10 +580,10 @@ export default function Home() {
                           {formatPriceShort(prop.price, prop.currency)}
                         </span>
                       </Tooltip>
-                      {popup}
+                      {popupFor(prop)}
                     </Circle>
-                  );
-                })}
+                  ));
+                })()}
               </MapContainer>
             )}
           </motion.div>

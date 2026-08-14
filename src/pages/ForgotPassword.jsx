@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
+import Seo from "../components/Seo";
 import Footer from "../components/Footer";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -40,6 +41,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
+      <Seo title="Recuperar contraseña" noindex />
       <Navbar />
       <div className="flex-1 flex items-center justify-center px-4 py-12">
       <motion.div

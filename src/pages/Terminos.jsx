@@ -17,7 +17,7 @@ const SECTIONS = [
 
 export default function Terminos() {
   return (
-    <LegalPageLayout title="Términos de uso" updatedAt="24 de julio de 2026" sections={SECTIONS}>
+    <LegalPageLayout title="Términos de uso" updatedAt="24 de julio de 2026" sections={SECTIONS} path="/terminos">
       <Section id="aceptacion" title="1. Aceptación">
         <p>
           Al crear una cuenta o usar Domify (el "Servicio") aceptas estos Términos de uso. Si no

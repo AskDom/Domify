@@ -11,7 +11,7 @@ const SECTIONS = [
 
 export default function Cookies() {
   return (
-    <LegalPageLayout title="Política de cookies" updatedAt="27 de julio de 2026" sections={SECTIONS}>
+    <LegalPageLayout title="Política de cookies" updatedAt="27 de julio de 2026" sections={SECTIONS} path="/cookies">
       <Section id="resumen" title="1. Resumen">
         <p>
           A diferencia de muchos sitios, Domify no usa cookies para mantener tu sesión iniciada.

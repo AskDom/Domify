@@ -16,7 +16,7 @@ const SECTIONS = [
 
 export default function Privacidad() {
   return (
-    <LegalPageLayout title="Política de privacidad" updatedAt="27 de julio de 2026" sections={SECTIONS}>
+    <LegalPageLayout title="Política de privacidad" updatedAt="27 de julio de 2026" sections={SECTIONS} path="/privacidad">
       <Section id="datos" title="1. Qué datos recopilamos">
         <p>Cuando usas Domify podemos recopilar:</p>
         <ul className="list-disc pl-5 space-y-1">

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import Seo from "../components/Seo";
 
 // Casas flotantes de fondo
 const FLOATING_HOUSES = Array.from({ length: 8 }, (_, i) => ({
@@ -29,6 +30,7 @@ export default function NotFound() {
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1a56db 100%)" }}
     >
+      <Seo title="Página no encontrada" noindex />
       {/* Casas flotantes de fondo */}
       {FLOATING_HOUSES.map((h) => (
         <motion.div

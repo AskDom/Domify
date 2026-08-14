@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Circle, Tooltip, Popup, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -10,6 +13,7 @@ import { motion } from "framer-motion";
 import { Bed, Bath, Car, MapPin, Heart, Search } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Seo from "../components/Seo";
 import PropertyImage from "../components/PropertyImage";
 import PropertyCardSkeleton from "../components/PropertyCardSkeleton";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -26,6 +30,19 @@ L.Icon.Default.mergeOptions({
   iconUrl:       markerIcon,
   shadowUrl:     markerShadow,
 });
+
+// Ícono de cluster con la misma paleta que los pines individuales — sin esto
+// leaflet.markercluster dibuja círculos amarillo/naranja por defecto, que no
+// pegan con el resto del mapa.
+function clusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 34 : count < 100 ? 42 : 50;
+  return L.divIcon({
+    className: "",
+    html: `<div style="background:#2563eb;color:white;width:100%;height:100%;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid white">${count}</div>`,
+    iconSize: L.point(size, size),
+  });
+}
 
 function createPriceIcon(price, isActive, status, currency) {
   const formatted = formatPriceShort(price, currency);
@@ -92,6 +109,7 @@ export default function SearchResults() {
   const [loading,    setLoading]    = useState(true);
   const [results,    setResults]    = useState([]);
   const [total,      setTotal]      = useState(0);
+  const [page,       setPage]       = useState(1);
   const [mapVersion, setMapVersion] = useState(0);
   const [filters,    setFilters]    = useState({
     status:   searchParams.get("status")   || "",
@@ -146,7 +164,9 @@ export default function SearchResults() {
   };
 
   // ── FETCH AL BACKEND ───────────────────────────────────────────────────────
-  const fetchResults = useCallback(async (q, f) => {
+  // pageNum > 1 es "Cargar más": pide la página siguiente y la suma a la
+  // lista que ya estaba, en vez de reemplazarla.
+  const fetchResults = useCallback(async (q, f, pageNum = 1) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -157,6 +177,7 @@ export default function SearchResults() {
       if (f.minPrice) params.set("minPrice", f.minPrice);
       if (f.maxPrice) params.set("maxPrice", f.maxPrice);
       params.set("limit", 50);
+      params.set("page", pageNum);
 
       const res  = await fetch(`${API_URL}/api/properties?${params}`, {
         credentials: "include",
@@ -165,12 +186,13 @@ export default function SearchResults() {
       if (!res.ok) throw new Error(data.error);
 
       const normalized = data.properties.map(normalizeProperty);
-      setResults(normalized);
+      setResults((prev) => (pageNum === 1 ? normalized : [...prev, ...normalized]));
       setTotal(data.pagination?.total ?? normalized.length);
+      setPage(pageNum);
       setMapVersion((v) => v + 1);
     } catch (err) {
       console.error("SearchResults fetch error:", err);
-      setResults([]);
+      if (pageNum === 1) setResults([]);
     } finally {
       setLoading(false);
     }
@@ -180,7 +202,7 @@ export default function SearchResults() {
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      fetchResults(query, filters);
+      fetchResults(query, filters, 1);
     }, 400);
     return () => clearTimeout(debounceRef.current);
   }, [query, filters, fetchResults]);
@@ -190,8 +212,21 @@ export default function SearchResults() {
 
   const selectClass = "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl px-4 py-2 text-sm outline-none border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 transition-colors";
 
+  // Título descriptivo por combinación de filtros ("Casas en renta") — pero
+  // una búsqueda de texto libre (?q=) no es una página canónica (infinitas
+  // variantes del mismo contenido), así que esas no se indexan.
+  const searchTitle = [filters.type, filters.status && `en ${filters.status.toLowerCase()}`]
+    .filter(Boolean)
+    .join(" ") || "Resultados de búsqueda";
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300 flex flex-col">
+      <Seo
+        title={searchTitle}
+        description={`${total > 0 ? `${total} propiedades encontradas` : "Buscá"} en Domify — apartamentos, casas y villas en venta o renta en República Dominicana.`}
+        path="/search"
+        noindex={Boolean(query)}
+      />
       <Navbar />
 
       {/* BARRA BÚSQUEDA + FILTROS */}
@@ -352,7 +387,7 @@ export default function SearchResults() {
           {!loading && results.length < total && (
             <div className="flex justify-center mt-6">
               <button
-                onClick={() => fetchResults(query, { ...filters, _page: Math.ceil(results.length / 50) + 1 })}
+                onClick={() => fetchResults(query, filters, page + 1)}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 px-8 py-3 rounded-2xl font-semibold shadow hover:shadow-md transition"
               >
                 Cargar más · {total - results.length} restantes
@@ -366,17 +401,35 @@ export default function SearchResults() {
           <MapContainer center={[18.7357, -70.1627]} zoom={7} scrollWheelZoom className="w-full h-full" style={{ zIndex: 0 }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
             <MapFocus properties={results} version={mapVersion}/>
-            {results.map((prop) => (
-              currentUser ? (
-                <Marker key={prop.id} position={[prop.lat, prop.lng]}
-                  icon={createPriceIcon(prop.price, activeId === prop.id, prop.status, prop.currency)}
-                  eventHandlers={{ mouseover: () => setActiveId(prop.id), mouseout: () => setActiveId(null) }}
-                >
-                  <Popup>
-                    <PropertyPopupContent prop={prop} />
-                  </Popup>
-                </Marker>
-              ) : (
+            {currentUser ? (
+              // Agrupados: con muchas propiedades visibles a la vez, montar
+              // un Marker por cada una satura el DOM y el mapa se congela
+              // (ver prueba de carga — 1 fps con 10k pines sin agrupar,
+              // 61 fps agrupados). leaflet.markercluster resuelve esto
+              // fusionando los pines cercanos en un solo círculo con contador
+              // hasta que el usuario hace zoom lo suficiente.
+              <MarkerClusterGroup
+                chunkedLoading
+                maxClusterRadius={60}
+                disableClusteringAtZoom={16}
+                spiderfyOnMaxZoom
+                iconCreateFunction={clusterIcon}
+              >
+                {results.map((prop) => (
+                  <Marker key={prop.id} position={[prop.lat, prop.lng]}
+                    icon={createPriceIcon(prop.price, activeId === prop.id, prop.status, prop.currency)}
+                    eventHandlers={{ mouseover: () => setActiveId(prop.id), mouseout: () => setActiveId(null) }}
+                  >
+                    <Popup>
+                      <PropertyPopupContent prop={prop} />
+                    </Popup>
+                  </Marker>
+                ))}
+              </MarkerClusterGroup>
+            ) : (
+              // Zonas aproximadas: son Circle, no Marker, así que el plugin
+              // de clustering no las agrupa — se quedan sueltas como antes.
+              results.map((prop) => (
                 <Circle key={prop.id} center={approxZoneCenter(prop.lat, prop.lng)} radius={900}
                   pathOptions={{ color: "#1a56db", weight: 1, fillColor: "#1a56db", fillOpacity: 0.15 }}
                   eventHandlers={{ mouseover: () => setActiveId(prop.id), mouseout: () => setActiveId(null) }}
@@ -393,8 +446,8 @@ export default function SearchResults() {
                     </p>
                   </Popup>
                 </Circle>
-              )
-            ))}
+              ))
+            )}
           </MapContainer>
         </div>
 

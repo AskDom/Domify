@@ -81,20 +81,15 @@ export function PropertiesProvider({ children }) {
   const fetchUserProperties = useCallback(async () => {
     if (!currentUser) { setUserProperties([]); return; }
     try {
-      // Pedimos todas las propiedades del usuario autenticado
-      const res  = await fetch(`${API_URL}/api/properties?limit=100`, {
+      // ?publishedBy= filtra en el servidor (mismo criterio que la app móvil)
+      // — antes se traía la primera página de TODO y se filtraba en el cliente,
+      // lo que cortaba la lista a 100 propiedades y desperdiciaba el payload.
+      const res  = await fetch(`${API_URL}/api/properties?publishedBy=${currentUser.id}`, {
         credentials: "include",
       });
       const data = await res.json();
       if (!res.ok) return;
-      // Filtramos las del usuario actual en el cliente
-      const mine = data.properties
-        .map(normalizeProperty)
-        .filter((p) => {
-          const ownerId = typeof p.publishedBy === "object" ? p.publishedBy?.id : p.publishedById;
-          return ownerId === currentUser?.id;
-        });
-      setUserProperties(mine);
+      setUserProperties(data.properties.map(normalizeProperty));
     } catch (err) {
       console.error("fetchUserProperties error:", err);
     }
@@ -229,11 +224,6 @@ export function PropertiesProvider({ children }) {
     () => properties.filter((p) => favorites.includes(p.id)),
     [properties, favorites]
   );
-  const verifyProperty = useCallback((id) => {
-    setProperties((prev)     => prev.map((p) => p.id === id ? { ...p, verified: true } : p));
-    setUserProperties((prev) => prev.map((p) => p.id === id ? { ...p, verified: true } : p));
-  }, []);
-
   // ── CARGAR MÁS (paginación) ───────────────────────────────────────────────
   const loadMore = useCallback((filters = {}) => {
     if (!pagination.hasMore) return;
@@ -257,7 +247,6 @@ export function PropertiesProvider({ children }) {
       isFavorite,
       getUserProperties,
       getFavoriteProperties,
-      verifyProperty,
     }}>
       {children}
     </PropertiesContext.Provider>

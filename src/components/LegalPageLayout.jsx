@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
+import Seo from "./Seo";
 
 export function Section({ id, title, children }) {
   return (
@@ -13,7 +14,7 @@ export function Section({ id, title, children }) {
   );
 }
 
-export default function LegalPageLayout({ title, updatedAt, sections, children }) {
+export default function LegalPageLayout({ title, updatedAt, sections, children, path }) {
   const [activeId, setActiveId] = useState(sections?.[0]?.id);
   const observerRef = useRef(null);
 
@@ -44,6 +45,7 @@ export default function LegalPageLayout({ title, updatedAt, sections, children }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
+      {path && <Seo title={title} description={`${title} de Domify, el portal inmobiliario dominicano.`} path={path} />}
       <Navbar />
 
       <div className="flex-1 px-4 py-12">

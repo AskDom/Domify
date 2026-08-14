@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart } from "lucide-react";
 import Navbar from "../components/Navbar";
+import Seo from "../components/Seo";
 import Footer from "../components/Footer";
 import PropertyImage from "../components/PropertyImage";
 import VerifiedBadge from "../components/VerifiedBadge";
@@ -175,6 +176,7 @@ export default function Favorites() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300 flex flex-col">
+      <Seo title="Mis favoritos" noindex />
       <Navbar />
 
       <div className="flex-1 max-w-screen-2xl mx-auto w-full px-4 md:px-8 py-10">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, Star, Home as HomeIcon, User as UserIcon, Plus, Loader2, X, MoreVertical, Eye, Pencil, CheckCircle2, Flag, Undo2, Trash2 } from "lucide-react";
+import { ShieldCheck, Star, Home as HomeIcon, User as UserIcon, Plus, Loader2, X, MoreVertical, Eye, Pencil, Flag, Undo2, Trash2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Seo from "../components/Seo";
 import { useAuth, CSRF_HEADERS } from "../context/AuthContext";
 import { useProperties } from "../context/PropertiesContext";
 import { useToast } from "../context/ToastContext";
@@ -28,7 +29,7 @@ function StatCard({ value, label, color = "text-gray-900 dark:text-white" }) {
   );
 }
 
-function PropertyCard({ prop, onEdit, onDelete, onVerify, onStatusChange, confirmDelete, setConfirmDelete }) {
+function PropertyCard({ prop, onEdit, onDelete, onStatusChange, confirmDelete, setConfirmDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const statusColor = {
@@ -146,12 +147,6 @@ function PropertyCard({ prop, onEdit, onDelete, onVerify, onStatusChange, confir
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                       <Pencil size={15} strokeWidth={2.25} /> Editar
                     </button>
-                    {!prop.verified && (
-                      <button onClick={() => { onVerify(prop.id); setMenuOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition">
-                        <CheckCircle2 size={15} strokeWidth={2.25} /> Verificar
-                      </button>
-                    )}
                     {(prop.status === "Venta" || prop.status === "Vendido") && (
                       <button onClick={() => { onStatusChange(prop.id, prop.status === "Venta" ? "Vendido" : "Venta"); setMenuOpen(false); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
@@ -292,11 +287,79 @@ function EditModal({ prop, editForm, setEditForm, onSave, onClose, uploadingEdit
   );
 }
 
+function AccountModal({ form, password, setForm, setPassword, onSave, onClose, saving }) {
+  const inputClass = "w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white transition";
+  const labelClass = "text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backdropFilter: "blur(8px)", background: "rgba(0,0,0,0.5)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-lg bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
+        style={{ maxHeight: "88vh", overflowY: "auto" }}
+      >
+        <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
+          <h3 className="font-black text-gray-900 dark:text-white">Editar perfil</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition text-xl">×</button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className={labelClass}>Nombre completo</label>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputClass}/>
+          </div>
+          <div>
+            <label className={labelClass}>Correo</label>
+            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputClass}/>
+          </div>
+
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+            <label className="text-sm font-bold text-gray-900 dark:text-white block">Cambiar contraseña</label>
+            <p className="text-xs text-gray-400 mt-0.5 mb-4">Dejá estos campos vacíos si no querés cambiarla.</p>
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Contraseña actual</label>
+                <input type="password" value={password.current} onChange={(e) => setPassword({ ...password, current: e.target.value })} className={inputClass}/>
+              </div>
+              <div>
+                <label className={labelClass}>Contraseña nueva (mínimo 8 caracteres)</label>
+                <input type="password" value={password.new} onChange={(e) => setPassword({ ...password, new: e.target.value })} className={inputClass}/>
+              </div>
+              <div>
+                <label className={labelClass}>Confirmar contraseña nueva</label>
+                <input type="password" value={password.confirm} onChange={(e) => setPassword({ ...password, confirm: e.target.value })} className={inputClass}/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex gap-3">
+          <button onClick={onClose} className="flex-1 py-3 rounded-xl text-sm font-semibold border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+            Cancelar
+          </button>
+          <button onClick={onSave} disabled={saving} className="flex-1 py-3 rounded-xl text-sm font-bold text-white transition disabled:opacity-60" style={{ background: "#111827" }}>
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function Profile() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "propiedades";
   const { currentUser, logout, updateAvatar } = useAuth();
-  const { getFavoriteProperties, getUserProperties, deleteProperty, updateProperty, verifyProperty } = useProperties();
+  const { getFavoriteProperties, getUserProperties, deleteProperty, updateProperty } = useProperties();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -445,6 +508,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300">
+      <Seo title="Mi perfil" noindex />
       <Navbar />
 
       {/* ── COVER / HEADER ── */}
@@ -555,7 +619,6 @@ export default function Profile() {
                       prop={prop}
                       onEdit={startEdit}
                       onDelete={handleDelete}
-                      onVerify={(id) => { verifyProperty(id); toast({ message: "Propiedad verificada ✓", type: "success" }); }}
                       onStatusChange={handleStatusChange}
                       confirmDelete={confirmDelete}
                       setConfirmDelete={setConfirmDelete}

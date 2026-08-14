@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "../components/Navbar";
+import Seo from "../components/Seo";
 import { useInbox } from "../context/InboxContext";
 import { useAuth } from "../context/AuthContext";
 
@@ -107,6 +108,7 @@ export default function Inbox() {
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-950 overflow-hidden">
+      <Seo title="Mensajes" noindex />
       <Navbar />
 
       <div className="flex-1 flex overflow-hidden">

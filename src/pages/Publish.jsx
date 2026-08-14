@@ -9,6 +9,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import Seo from "../components/Seo";
 import Footer from "../components/Footer";
 import CityAutocomplete from "../components/CityAutocomplete";
 import { useProperties } from "../context/PropertiesContext";
@@ -137,6 +138,7 @@ export default function Publish() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col">
+      <Seo title="Publicar propiedad" noindex />
       <Navbar />
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-12">

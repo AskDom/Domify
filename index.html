@@ -5,14 +5,17 @@
     <!--
       CSP pensada para lo que esta SPA realmente usa: Google Fonts, GA4,
       imágenes de Unsplash/Cloudinary, tiles de OpenStreetMap y el backend
-      propio (API + WebSocket de Socket.IO). connect-src queda en "https:"
-      genérico porque VITE_API_URL es una env var que puede apuntar a
-      dominios distintos según el entorno (no hay forma de fijarlo acá en
-      build-time sin acoplar este HTML a un dominio de backend concreto).
-      http://localhost:* y ws://localhost:* están permitidos aparte porque
-      en dev el backend corre sin HTTPS — sin esto, "https:" a secas
-      bloquea silenciosamente TODOS los fetch al backend local (y el HMR
-      de Vite, que también usa un websocket local).
+      propio (API + WebSocket de Socket.IO). connect-src usa %VITE_API_URL%
+      y %VITE_WS_URL% — Vite reemplaza estos placeholders por el valor real
+      de cada env var en build-time (soporte nativo de Vite para env vars en
+      HTML), así que cada entorno queda con su propio dominio exacto en vez
+      de un comodín de esquema ("https:"/"wss:") que dejaría conectar a
+      CUALQUIER host HTTPS — útil como exfiltración si algún día una
+      dependencia de npm comprometida intenta mandar datos afuera.
+      http://localhost:* y ws://localhost:* quedan aparte porque en dev el
+      backend corre sin HTTPS, y porque el HMR de Vite también usa un
+      websocket local en un puerto que no necesariamente coincide con
+      VITE_WS_URL.
     -->
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
@@ -20,7 +23,7 @@
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       font-src 'self' https://fonts.gstatic.com;
       img-src 'self' data: https://images.unsplash.com https://res.cloudinary.com https://*.tile.openstreetmap.org;
-      connect-src 'self' https: wss: http://localhost:* ws://localhost:*;
+      connect-src 'self' %VITE_API_URL% %VITE_WS_URL% http://localhost:* ws://localhost:*;
       object-src 'none';
       base-uri 'self';
       form-action 'self';

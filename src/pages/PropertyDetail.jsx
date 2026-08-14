@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bed, Bath, Car, MapPin, Heart, ChevronLeft, ChevronRight, X, Share2, Check, MessageCircle } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Seo, { SITE_URL } from "../components/Seo";
 import AuthModal from "../components/AuthModal";
 import VerifiedBadge from "../components/VerifiedBadge";
 import PropertyCard from "../components/PropertyCard";
@@ -148,8 +149,53 @@ export default function PropertyDetail() {
     ? property.images
     : [property.image, ...(extraImages[property.type] || [])];
 
+  // Google no tiene un rich result dedicado para listados inmobiliarios,
+  // pero RealEstateListing es el markup que schema.org y el resto del
+  // ecosistema (portales, agregadores) esperan — ayuda a que el buscador
+  // entienda el contenido de la página aunque no haya snippet especial.
+  const propertyJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateListing",
+    name: property.title,
+    description: property.description,
+    url: `${SITE_URL}/property/${property.id}`,
+    image: gallery.length ? gallery : undefined,
+    datePosted: property.createdAt,
+    dateModified: property.updatedAt,
+    about: {
+      "@type": { Apartamento: "Apartment", Casa: "House", Villa: "House" }[property.type] || "Residence",
+      name: property.title,
+      numberOfRooms: property.rooms || undefined,
+      numberOfBathroomsTotal: property.baths || undefined,
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: property.sector || property.city,
+        addressRegion: property.city,
+        addressCountry: "DO",
+      },
+    },
+    offers: {
+      "@type": "Offer",
+      price: property.price,
+      priceCurrency: property.currency || "USD",
+      availability: "https://schema.org/InStock",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 transition-colors duration-300 pb-16 lg:pb-0">
+      <Seo
+        title={`${property.title} — ${formatPrice(property.price, property.currency)}`}
+        description={
+          property.description?.length > 160
+            ? `${property.description.slice(0, 157)}...`
+            : property.description || `${property.title} en ${formatLocation(property.city, property.sector)}. Publicado en Domify.`
+        }
+        path={`/property/${property.id}`}
+        image={gallery[0]}
+        type="article"
+        jsonLd={propertyJsonLd}
+      />
       <Navbar />
 
       {/* ── BARRA FLOTANTE — precio + WhatsApp, aparece al pasar la galería ──
