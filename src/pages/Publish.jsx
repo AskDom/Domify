@@ -48,14 +48,15 @@ export default function Publish() {
   const { toast, banner } = useToast();
   const navigate = useNavigate();
 
-  const isVendedor  = currentUser?.role === "Vendedor";
   const myPublished = published.filter((p) => {
     const ownerId = typeof p.publishedBy === "object" && p.publishedBy !== null
       ? p.publishedBy.id : p.publishedById;
     return ownerId === currentUser?.id;
   });
-  const vendedorLimit   = 3;
-  const hasReachedLimit = isVendedor && myPublished.length >= vendedorLimit;
+  // Mismo tope que el backend (property.controller.js): Vendedor 3, Agente 10.
+  // El frontend solo deshabilita el botón — la validación real está en el API.
+  const roleLimit     = { Vendedor: 3, Agente: 10 }[currentUser?.role];
+  const hasReachedLimit = roleLimit !== undefined && myPublished.length >= roleLimit;
 
   const [position,   setPosition]   = useState(null);
   const [uploading,  setUploading]  = useState(false);
@@ -66,6 +67,7 @@ export default function Publish() {
     type: "Apartamento", status: "Venta",
     rooms: 1, baths: 1, parking: 0,
     city: "", sector: "", images: [],
+    videoUrl: "", virtualTourUrl: "",
   });
 
   const set = (key, val) => setForm((p) => ({ ...p, [key]: val }));
@@ -157,7 +159,7 @@ export default function Publish() {
         {hasReachedLimit && (
           <div className="mb-8 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-2xl px-5 py-4">
             <p className="text-red-600 dark:text-red-400 font-semibold text-sm">
-              Límite alcanzado — {myPublished.length}/{vendedorLimit} propiedades publicadas
+              Límite alcanzado — {myPublished.length}/{roleLimit} propiedades publicadas
             </p>
             <p className="text-red-400 text-xs mt-1">
               Elimina una propiedad desde tu perfil para poder publicar una nueva.
@@ -293,6 +295,28 @@ export default function Publish() {
                   </select>
                 </Field>
               </div>
+
+              {/* Video / tour virtual (opcional) — URLs de YouTube, Vimeo,
+                  Matterport, 3DVista... El backend valida que sean http(s). */}
+              <Field label="Video de la propiedad (opcional)">
+                <input
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={form.videoUrl}
+                  onChange={(e) => set("videoUrl", e.target.value)}
+                  className={input}
+                />
+                <p className="text-xs text-gray-400 mt-1.5">Enlace de YouTube o Vimeo — se mostrará embebido en el detalle.</p>
+              </Field>
+
+              <Field label="Tour virtual 360° (opcional)">
+                <input
+                  placeholder="https://my.matterport.com/show/?m=..."
+                  value={form.virtualTourUrl}
+                  onChange={(e) => set("virtualTourUrl", e.target.value)}
+                  className={input}
+                />
+                <p className="text-xs text-gray-400 mt-1.5">Recorrido 360° de Matterport, 3DVista u otra plataforma.</p>
+              </Field>
 
               {/* Características */}
               <div>

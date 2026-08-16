@@ -30,15 +30,102 @@ function TimeAgo({ date }) {
   return <span>{new Date(date).toLocaleDateString("es-DO", { month: "short", day: "numeric" })}</span>;
 }
 
+const VISIT_STATUS = {
+  PENDIENTE:  { label: "Pendiente",  cls: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300" },
+  CONFIRMADA: { label: "Confirmada", cls: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300" },
+  CANCELADA:  { label: "Cancelada",  cls: "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" },
+  COMPLETADA: { label: "Completada", cls: "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400" },
+};
+
+const formatVisitDate = (iso) =>
+  new Date(iso).toLocaleString("es-DO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// Tarjeta de visita dentro del hilo: muestra la cita y permite al dueño
+// confirmarla/cancelarla (o al interesado cancelar la suya) sin salir del DM.
+function VisitBubble({ msg, isMe, busy, onAction }) {
+  const visit   = msg.visit;
+  const status  = VISIT_STATUS[visit.status] || VISIT_STATUS.PENDIENTE;
+  const canAct    = visit.status === "PENDIENTE" && !isMe; // el dueño recibe la solicitud
+  const canCancel = visit.status === "PENDIENTE" && isMe;  // el interesado cancela la suya
+
+  return (
+    <div className={`px-4 py-3 min-w-[230px] ${
+      isMe
+        ? "bg-gray-900 dark:bg-white rounded-tr-md"
+        : "bg-gray-100 dark:bg-gray-800 rounded-tl-md"
+    } rounded-2xl`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`text-[10px] font-black uppercase tracking-wide ${isMe ? "text-gray-400 dark:text-gray-500" : "text-gray-400 dark:text-gray-500"}`}>
+          Solicitud de visita
+        </span>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status.cls}`}>
+          {status.label}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <svg className={`w-3.5 h-3.5 flex-shrink-0 ${isMe ? "text-gray-400 dark:text-gray-500" : "text-gray-400 dark:text-gray-500"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <span className={`text-sm font-semibold ${isMe ? "text-white dark:text-gray-900" : "text-gray-900 dark:text-white"}`}>
+          {formatVisitDate(visit.scheduledAt)}
+        </span>
+      </div>
+      {visit.message && (
+        <p className={`text-xs mt-1.5 ${isMe ? "text-gray-300 dark:text-gray-600" : "text-gray-500 dark:text-gray-400"}`}>
+          {visit.message}
+        </p>
+      )}
+      {(canAct || canCancel) && (
+        <div className="flex gap-2 mt-3">
+          {canAct && (
+            <>
+              <button
+                onClick={() => onAction(visit.id, "CONFIRMADA")}
+                disabled={busy}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+              <button
+                onClick={() => onAction(visit.id, "CANCELADA")}
+                disabled={busy}
+                className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
+          {canCancel && (
+            <button
+              onClick={() => onAction(visit.id, "CANCELADA")}
+              disabled={busy}
+              className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-lg transition disabled:opacity-50"
+            >
+              Cancelar solicitud
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Inbox() {
   const { currentUser } = useAuth();
-  const { getConversations, markAsRead, deleteMessage, sendMessage, fetchMessages, loadingMessages, unreadCount } = useInbox();
+  const { getConversations, markAsRead, deleteMessage, sendMessage, fetchMessages, loadingMessages, unreadCount, updateVisitStatus } = useInbox();
 
   const [selectedKey, setSelectedKey] = useState(null);
   const [replyText,   setReplyText]   = useState("");
   const [sending,     setSending]     = useState(false);
   const [search,      setSearch]      = useState("");
   const [confirmDeleteConv, setConfirmDeleteConv] = useState(false);
+  const [visitBusy,   setVisitBusy]   = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef       = useRef(null);
 
@@ -105,6 +192,18 @@ export default function Inbox() {
   const sortedMessages = selectedConv
     ? [...selectedConv.messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     : [];
+
+  const handleVisitAction = async (visitId, status) => {
+    if (visitBusy) return;
+    setVisitBusy(visitId);
+    try {
+      await updateVisitStatus(visitId, status);
+    } catch (err) {
+      console.error("updateVisitStatus error:", err);
+    } finally {
+      setVisitBusy(null);
+    }
+  };
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-gray-950 overflow-hidden">
@@ -306,13 +405,22 @@ export default function Inbox() {
                         {!isMe && <Avatar name={msg.fromName} src={msg.fromAvatar} size="w-8 h-8" text="text-xs" />}
 
                         <div className={`max-w-[72%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-1`}>
-                          <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                            isMe
-                              ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-tr-md"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-tl-md"
-                          } ${isTemp ? "opacity-60" : ""}`}>
-                            {msg.text}
-                          </div>
+                          {msg.visit ? (
+                            <VisitBubble
+                              msg={msg}
+                              isMe={isMe}
+                              busy={visitBusy === msg.visit.id}
+                              onAction={handleVisitAction}
+                            />
+                          ) : (
+                            <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                              isMe
+                                ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-tr-md"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-tl-md"
+                            } ${isTemp ? "opacity-60" : ""}`}>
+                              {msg.text}
+                            </div>
+                          )}
                           <div className={`flex items-center gap-1.5 ${isMe ? "flex-row-reverse" : ""}`}>
                             <span className="text-[11px] text-gray-400">
                               <TimeAgo date={msg.createdAt} />

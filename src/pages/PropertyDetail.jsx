@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bed, Bath, Car, MapPin, Heart, ChevronLeft, ChevronRight, X, Share2, Check, MessageCircle } from "lucide-react";
+import { Bed, Bath, Car, MapPin, Heart, ChevronLeft, ChevronRight, X, Share2, Check, MessageCircle, CalendarPlus, PlayCircle, Box, Loader2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Seo, { SITE_URL } from "../components/Seo";
@@ -11,13 +11,16 @@ import AuthModal from "../components/AuthModal";
 import VerifiedBadge from "../components/VerifiedBadge";
 import PropertyCard from "../components/PropertyCard";
 import { useProperties } from "../context/PropertiesContext";
-import { useAuth } from "../context/AuthContext";
+import { useAuth, CSRF_HEADERS } from "../context/AuthContext";
 import { useInbox } from "../context/InboxContext";
 import ReviewSection from "../components/ReviewSection";
 import { useToast } from "../context/ToastContext";
 import { formatPrice } from "../utils/formatPrice";
-import PriceTag from "../components/PriceTag";
+import PriceTag, { PriceEquivalent } from "../components/PriceTag";
+import { useFxRate } from "../hooks/useFxRate";
 import { formatLocation } from "../utils/formatLocation";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const extraImages = {
   Apartamento: [
@@ -59,7 +62,8 @@ export default function PropertyDetail() {
   const { toast } = useToast();
   const property = allProperties.find((p) => p.id === id || p.id === Number(id));
 
-  // El backend devuelve publishedBy como objeto { id, name, email }
+  // El backend devuelve publishedBy como objeto { id, name, avatar } — el
+  // email no se expone públicamente por privacidad.
   // Los datos mock lo tienen como string. Normalizamos aquí.
   const publishedByName = property
     ? (typeof property.publishedBy === "object" && property.publishedBy !== null
@@ -77,6 +81,16 @@ export default function PropertyDetail() {
     ? property.publishedBy.avatar
     : null;
 
+  // Sello "agente verificado" del publicador — el backend lo expone en el
+  // publishedBy de la propiedad desde que un admin verificó la cuenta.
+  const publishedByVerified = property && typeof property.publishedBy === "object" && property.publishedBy !== null
+    ? Boolean(property.publishedBy.verified)
+    : false;
+
+  // ¿Soy el dueño? Un dueño no se agenda visitas a sí mismo (el backend lo
+  // rechaza con 403) — mejor ocultar el botón directamente.
+  const isOwner = Boolean(currentUser && publishedById === currentUser.id);
+
   const similar = property
     ? allProperties
         .filter((p) => p.id !== property.id && (p.type === property.type || p.city === property.city))
@@ -92,6 +106,46 @@ export default function PropertyDetail() {
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
   const galleryRef = useRef(null);
+
+  // ── AGENDAR VISITA ────────────────────────────────────────────────────────
+  const [visitOpen, setVisitOpen] = useState(false);
+  const [visitDate, setVisitDate] = useState("");
+  const [visitMsg, setVisitMsg] = useState("");
+  const [visitBusy, setVisitBusy] = useState(false);
+  const [visitDone, setVisitDone] = useState(false);
+
+  const openVisit = () => {
+    // Sin sesión, el flujo pide login antes de abrir el modal.
+    if (!currentUser) { setAuthOpen(true); return; }
+    setVisitDone(false);
+    setVisitOpen(true);
+  };
+
+  const submitVisit = async () => {
+    if (!visitDate || !currentUser) return;
+    setVisitBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/api/visits`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
+        body: JSON.stringify({ propertyId: property.id, scheduledAt: new Date(visitDate).toISOString(), message: visitMsg }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo agendar la visita.");
+      setVisitDone(true);
+      setVisitMsg("");
+      setVisitDate("");
+      toast({ message: "Visita agendada — el vendedor la confirmará 📅", type: "success" });
+      setTimeout(() => setVisitOpen(false), 1600);
+    } catch (err) {
+      toast({ message: err.message, type: "error" });
+    } finally {
+      setVisitBusy(false);
+    }
+  };
+
+  const fxRate = useFxRate();
 
   useEffect(() => {
     const onScroll = () => {
@@ -209,6 +263,7 @@ export default function PropertyDetail() {
       >
         <p className="font-black text-gray-900 dark:text-white text-lg whitespace-nowrap">
           <PriceTag price={property.price} currency={property.currency} />
+          <span className="block text-xs text-gray-400 font-semibold"><PriceEquivalent price={property.price} currency={property.currency} rate={fxRate} /></span>
         </p>
         <p className="hidden sm:block text-sm text-gray-400 truncate flex-1">{property.title}</p>
         <button
@@ -400,6 +455,7 @@ export default function PropertyDetail() {
                   <PriceTag price={property.price} currency={property.currency} />
                   {property.status === "Renta" && <span className="text-lg font-normal text-gray-400 ml-2">/mes</span>}
                 </p>
+                <p className="mt-2"><PriceEquivalent price={property.price} currency={property.currency} rate={fxRate} /></p>
                 <div className="flex flex-wrap gap-6 mt-5 pt-5 border-t border-gray-100 dark:border-gray-700">
                   {[
                     { Icon: Bed, value: property.rooms, label: "habitaciones" },
@@ -457,6 +513,51 @@ export default function PropertyDetail() {
                       {amenitiesExpanded ? "Ver menos ↑" : `Ver las ${property.amenities.length} amenidades ↓`}
                     </button>
                   )}
+                </div>
+              )}
+
+              {/* VIDEO / TOUR VIRTUAL — enlaces que pegó el vendedor al
+                   publicar. El video va embebido (YouTube/Vimeo suelen
+                   permitir iframe); el tour 360° (Matterport/3DVista) abre en
+                   pestaña nueva porque muchos embebibles exigen sus propios
+                   scripts que no queremos cargar en la página. */}
+              {(property.videoUrl || property.virtualTourUrl) && (
+                <div className="p-6">
+                  <h2 className="text-lg font-black text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <span className="w-1 h-5 bg-blue-600 rounded-full" />
+                    Video y tour virtual
+                  </h2>
+                  <div className="space-y-3">
+                    {property.videoUrl && (
+                      <div className="overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700">
+                        <div className="aspect-video">
+                          <iframe
+                            src={property.videoUrl}
+                            title="Video de la propiedad"
+                            className="w-full h-full"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {property.virtualTourUrl && (
+                      <a
+                        href={property.virtualTourUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-gray-100 dark:border-gray-700 rounded-2xl px-4 py-3 transition-colors"
+                      >
+                        <Box size={20} strokeWidth={2} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm">Recorrido virtual 360°</p>
+                          <p className="text-xs text-gray-400">Explora la propiedad en otra pestaña</p>
+                        </div>
+                        <span className="ml-auto text-blue-600 dark:text-blue-400 font-bold text-sm">Abrir →</span>
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -540,6 +641,9 @@ export default function PropertyDetail() {
                     <PriceTag price={property.price} currency={property.currency} />
                     {property.status === "Renta" && <span className="text-sm font-normal opacity-70 ml-1">/mes</span>}
                   </p>
+                  <p className="text-xs font-semibold opacity-70 mt-0.5">
+                    <PriceEquivalent price={property.price} currency={property.currency} rate={fxRate} />
+                  </p>
                 </div>
 
                 <div className="p-5 space-y-4">
@@ -559,7 +663,14 @@ export default function PropertyDetail() {
                       )}
                       <div>
                         <p className="text-xs text-gray-400">Publicado por</p>
-                        <p className="font-bold text-gray-900 dark:text-white text-sm">{publishedByName}</p>
+                        <p className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-1.5">
+                          {publishedByName}
+                          {publishedByVerified && (
+                            <span title="Agente verificado por Domify" className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full">
+                              ✓ Verificado
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </Link>
                   )}
@@ -598,6 +709,19 @@ export default function PropertyDetail() {
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-2xl px-4 py-3 text-sm text-center text-gray-600 dark:text-gray-400">
                       <button onClick={() => setAuthOpen(true)} className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Inicia sesión</button> para contactar al vendedor
                     </div>
+                  )}
+
+                  {/* AGENDAR VISITA — solo si no soy el dueño de la propiedad */}
+                  {!isOwner && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={openVisit}
+                      className="w-full flex items-center justify-center gap-2 text-white py-3 rounded-2xl font-bold transition shadow-md"
+                      style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
+                    >
+                      <CalendarPlus size={17} strokeWidth={2.25} /> Agendar una visita
+                    </motion.button>
                   )}
 
                   {/* BOTONES — WhatsApp (principal) + Compartir (icon-only) en una sola fila */}
@@ -662,6 +786,80 @@ export default function PropertyDetail() {
       )}
       <Footer />
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+
+      {/* ── MODAL AGENDAR VISITA ── */}
+      <AnimatePresence>
+        {visitOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4"
+            style={{ backdropFilter: "blur(8px)", background: "rgba(0,0,0,0.5)" }}
+            onClick={(e) => e.target === e.currentTarget && setVisitOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="font-black text-gray-900 dark:text-white flex items-center gap-2">
+                  <CalendarPlus size={18} strokeWidth={2.25} className="text-green-600 dark:text-green-400" />
+                  Agendar visita
+                </h3>
+                <button onClick={() => setVisitOpen(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-white transition text-xl">×</button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {visitDone ? (
+                  <div className="text-center py-6">
+                    <p className="text-4xl mb-3">✅</p>
+                    <p className="font-bold text-gray-900 dark:text-white">Visita agendada</p>
+                    <p className="text-sm text-gray-400 mt-1">El vendedor la revisará y te confirmará.</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Elige fecha y hora para visitar <span className="font-bold text-gray-900 dark:text-white">"{property.title}"</span>.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Fecha y hora</label>
+                      <input
+                        type="datetime-local"
+                        value={visitDate}
+                        min={new Date().toISOString().slice(0, 16)}
+                        onChange={(e) => setVisitDate(e.target.value)}
+                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-green-500 transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Mensaje (opcional)</label>
+                      <textarea
+                        value={visitMsg}
+                        onChange={(e) => setVisitMsg(e.target.value)}
+                        placeholder="Ej. ¿Podría ser por la tarde? ¿La propiedad sigue disponible?"
+                        rows={3}
+                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-100 placeholder-gray-400 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-green-500 resize-none transition"
+                      />
+                    </div>
+                    <button
+                      onClick={submitVisit}
+                      disabled={!visitDate || visitBusy}
+                      className="w-full flex items-center justify-center gap-2 text-white py-3 rounded-2xl font-bold transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ background: "linear-gradient(135deg, #059669, #10b981)" }}
+                    >
+                      {visitBusy ? <Loader2 size={17} strokeWidth={2.5} className="animate-spin" /> : <CalendarPlus size={17} strokeWidth={2.25} />}
+                      {visitBusy ? "Agendando..." : "Confirmar visita"}
+                    </button>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

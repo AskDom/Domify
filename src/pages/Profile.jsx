@@ -29,6 +29,21 @@ function StatCard({ value, label, color = "text-gray-900 dark:text-white" }) {
   );
 }
 
+const STATUS_STYLES = {
+  PENDIENTE:  "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  CONFIRMADA: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+  CANCELADA:  "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300",
+  COMPLETADA: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+};
+
+function StatusPill({ status }) {
+  return (
+    <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${STATUS_STYLES[status] || "bg-gray-100 text-gray-500"}`}>
+      {status}
+    </span>
+  );
+}
+
 function PropertyCard({ prop, onEdit, onDelete, onStatusChange, confirmDelete, setConfirmDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -247,6 +262,24 @@ function EditModal({ prop, editForm, setEditForm, onSave, onClose, uploadingEdit
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Descripción</label>
             <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className={`${inputClass} resize-none`}/>
           </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Video (opcional)</label>
+            <input
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={editForm.videoUrl || ""}
+              onChange={(e) => setEditForm({ ...editForm, videoUrl: e.target.value })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Tour virtual 360° (opcional)</label>
+            <input
+              placeholder="https://my.matterport.com/show/?m=..."
+              value={editForm.virtualTourUrl || ""}
+              onChange={(e) => setEditForm({ ...editForm, virtualTourUrl: e.target.value })}
+              className={inputClass}
+            />
+          </div>
 
           {/* Fotos */}
           <div>
@@ -371,6 +404,51 @@ export default function Profile() {
   const [savedSearches,  setSavedSearches]  = useState([]);
   const [loadingSaved,   setLoadingSaved]   = useState(false);
 
+  // ── VISITAS (agenda) ─────────────────────────────────────────────────────
+  const [visits,          setVisits]          = useState([]); // solicitudes que hice
+  const [receivedVisits,  setReceivedVisits]  = useState([]); // a mis propiedades
+  const [loadingVisits,   setLoadingVisits]   = useState(false);
+  const [visitStatusBusy, setVisitStatusBusy] = useState(null);
+
+  const fetchVisits = useCallback(async () => {
+    setLoadingVisits(true);
+    try {
+      const [mine, received] = await Promise.all([
+        fetch(`${API_URL}/api/visits/mine`, { credentials: "include" }),
+        fetch(`${API_URL}/api/visits/received`, { credentials: "include" }),
+      ]);
+      const mineData     = mine.ok ? await mine.json() : { visits: [] };
+      const receivedData = received.ok ? await received.json() : { visits: [] };
+      setVisits(mineData.visits);
+      setReceivedVisits(receivedData.visits);
+    } finally {
+      setLoadingVisits(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchVisits(); }, [fetchVisits]);
+
+  const changeVisitStatus = async (id, status) => {
+    setVisitStatusBusy(`${id}-${status}`);
+    try {
+      const res = await fetch(`${API_URL}/api/visits/${id}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo actualizar la visita.");
+      await fetchVisits();
+      const msg = { CONFIRMADA: "Visita confirmada ✅", CANCELADA: "Visita cancelada", COMPLETADA: "Visita completada 🎉" }[status];
+      toast({ message: msg || "Visita actualizada", type: "success" });
+    } catch (err) {
+      toast({ message: err.message, type: "error" });
+    } finally {
+      setVisitStatusBusy(null);
+    }
+  };
+
   const fetchSavedSearches = useCallback(async () => {
     setLoadingSaved(true);
     try {
@@ -451,6 +529,8 @@ export default function Profile() {
       type:        prop.type,
       description: prop.description,
       images:      prop.images || (prop.image ? [prop.image] : []),
+      videoUrl:       prop.videoUrl || "",
+      virtualTourUrl: prop.virtualTourUrl || "",
     });
   };
 
@@ -502,6 +582,7 @@ export default function Profile() {
   const tabs = [
     { key: "propiedades", label: "Propiedades", count: myProperties.length },
     { key: "favoritos",   label: "Favoritos",   count: favoriteProperties.length },
+    { key: "visitas",     label: "Visitas",     count: visits.length + receivedVisits.length },
     { key: "guardadas",   label: "Búsquedas",   count: savedSearches.length },
     { key: "cuenta",      label: "Mi cuenta" },
   ];
@@ -537,6 +618,14 @@ export default function Profile() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-black text-gray-900 dark:text-white">{currentUser.name}</h1>
+                {currentUser.verified && (
+                  <span
+                    title="Cuenta verificada por Domify"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full"
+                  >
+                    ✓ Verificado
+                  </span>
+                )}
                 <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full text-white bg-gradient-to-r ${roleConfig.bg}`}>
                   <roleConfig.Icon size={11} strokeWidth={2.5} /> {roleConfig.label}
                 </span>
@@ -664,6 +753,117 @@ export default function Profile() {
                       </div>
                     </Link>
                   ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── VISITAS (AGENDA) ── */}
+          {activeTab === "visitas" && (
+            <motion.div key="visits" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              {loadingVisits ? (
+                <div className="text-center py-16 text-gray-400">Cargando...</div>
+              ) : (visits.length === 0 && receivedVisits.length === 0) ? (
+                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                  <p className="text-5xl mb-3">📅</p>
+                  <p className="text-gray-600 dark:text-gray-400 font-semibold mb-4">Todavía no tienes visitas agendadas</p>
+                  <p className="text-sm text-gray-400">Entra a cualquier propiedad y usa "Agendar una visita".</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Recibidas — solo las ve quien publica (el backend lo protege) */}
+                  {receivedVisits.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        Visitas a mis propiedades
+                        <span className="text-xs font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full">{receivedVisits.length}</span>
+                      </h3>
+                      <div className="space-y-3">
+                        {receivedVisits.map((v) => (
+                          <div key={v.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
+                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                              <div className="min-w-0">
+                                <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{v.property?.title}</p>
+                                <p className="text-gray-400 text-xs mt-1">
+                                  {new Date(v.scheduledAt).toLocaleString("es-DO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                                <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
+                                  Solicita: <span className="font-semibold text-gray-700 dark:text-gray-200">{v.user?.name}</span>
+                                </p>
+                                {v.message && <p className="text-gray-500 dark:text-gray-400 text-xs mt-1 italic">"{v.message}"</p>}
+                              </div>
+                              <StatusPill status={v.status} />
+                            </div>
+                            {v.status === "PENDIENTE" && (
+                              <div className="flex gap-2 mt-3">
+                                <button
+                                  onClick={() => changeVisitStatus(v.id, "CONFIRMADA")}
+                                  disabled={visitStatusBusy === `${v.id}-CONFIRMADA`}
+                                  className="flex-1 text-xs font-bold text-white bg-green-500 hover:bg-green-600 disabled:opacity-50 px-3 py-2 rounded-xl transition"
+                                >
+                                  {visitStatusBusy === `${v.id}-CONFIRMADA` ? "..." : "Confirmar"}
+                                </button>
+                                <button
+                                  onClick={() => changeVisitStatus(v.id, "CANCELADA")}
+                                  disabled={visitStatusBusy === `${v.id}-CANCELADA`}
+                                  className="flex-1 text-xs font-bold text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 px-3 py-2 rounded-xl transition"
+                                >
+                                  {visitStatusBusy === `${v.id}-CANCELADA` ? "..." : "Cancelar"}
+                                </button>
+                              </div>
+                            )}
+                            {v.status === "CONFIRMADA" && (
+                              <button
+                                onClick={() => changeVisitStatus(v.id, "COMPLETADA")}
+                                disabled={visitStatusBusy === `${v.id}-COMPLETADA`}
+                                className="mt-3 w-full text-xs font-bold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 px-3 py-2 rounded-xl transition"
+                              >
+                                {visitStatusBusy === `${v.id}-COMPLETADA` ? "..." : "Marcar como completada"}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Solicitadas por mí */}
+                  {visits.length > 0 && (
+                    <div>
+                      <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                        Mis solicitudes
+                        <span className="text-xs font-bold text-white bg-emerald-600 px-2 py-0.5 rounded-full">{visits.length}</span>
+                      </h3>
+                      <div className="space-y-3">
+                        {visits.map((v) => (
+                          <div key={v.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 flex items-start justify-between gap-3 flex-wrap">
+                            <div className="min-w-0">
+                              <Link to={`/property/${v.propertyId}`} className="font-bold text-gray-900 dark:text-white text-sm truncate hover:underline">
+                                {v.property?.title}
+                              </Link>
+                              <p className="text-gray-400 text-xs mt-1">
+                                {new Date(v.scheduledAt).toLocaleString("es-DO", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Vendedor: {v.property?.publishedBy?.name}</p>
+                              {v.message && <p className="text-gray-500 dark:text-gray-400 text-xs mt-1 italic">"{v.message}"</p>}
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <StatusPill status={v.status} />
+                              {v.status === "PENDIENTE" && (
+                                <button
+                                  onClick={() => changeVisitStatus(v.id, "CANCELADA")}
+                                  disabled={visitStatusBusy === `${v.id}-CANCELADA`}
+                                  className="text-xs font-bold text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 px-3 py-1.5 rounded-xl transition"
+                                >
+                                  {visitStatusBusy === `${v.id}-CANCELADA` ? "..." : "Cancelar solicitud"}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

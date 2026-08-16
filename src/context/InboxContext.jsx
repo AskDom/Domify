@@ -31,6 +31,7 @@ export function InboxProvider({ children }) {
     replyToId:     m.replyToId,
     createdAt:     m.createdAt,
     read:          m.read,
+    visit:         m.visit || null,
   });
 
   const fetchMessages = useCallback(async () => {
@@ -208,6 +209,23 @@ export function InboxProvider({ children }) {
     }
   }, []);
 
+  // ── VISITAS DESDE EL DM ─────────────────────────────────────────────────────
+  // Confirmar/cancelar/completar una visita directo desde el hilo. El backend
+  // crea el mensaje de DM correspondiente, así que recargamos los mensajes
+  // para reflejar el nuevo estado y la confirmación del hilo al instante.
+  const updateVisitStatus = useCallback(async (visitId, status) => {
+    const res = await fetch(`${API_URL}/api/visits/${visitId}/status`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
+      body: JSON.stringify({ status }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "No se pudo actualizar la visita.");
+    await fetchMessages();
+    return data.visit;
+  }, [fetchMessages]);
+
   // ── HELPERS ────────────────────────────────────────────────────────────────
   const getInbox  = useCallback((userId) => messages.filter((m) => m.toId   === userId), [messages]);
   const getSent   = useCallback((userId) => messages.filter((m) => m.fromId === userId), [messages]);
@@ -237,7 +255,7 @@ export function InboxProvider({ children }) {
     <InboxContext.Provider value={{
       messages, loadingMessages, unreadCount,
       fetchMessages, sendMessage, replyMessage,
-      markAsRead, deleteMessage,
+      markAsRead, deleteMessage, updateVisitStatus,
       getInbox, getSent, getUnreadCount, getConversations,
     }}>
       {children}

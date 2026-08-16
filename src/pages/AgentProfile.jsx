@@ -121,6 +121,14 @@ export default function AgentProfile() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
               <h1 className="text-2xl font-black text-gray-900 dark:text-white">{user.name}</h1>
+              {user.verified && (
+                <span
+                  title="Cuenta verificada por Domify"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-full"
+                >
+                  ✓ Verificado
+                </span>
+              )}
               <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full text-white bg-gradient-to-r ${roleConfig.bg}`}>
                 <roleConfig.Icon size={11} strokeWidth={2.5} /> {roleConfig.label}
               </span>

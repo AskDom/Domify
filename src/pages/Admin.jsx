@@ -175,6 +175,32 @@ export default function Admin() {
     }
   };
 
+  // Verificación de cuenta (agentes/vendedores de confianza) — el mismo
+  // sello que las propiedades, pero a nivel de usuario: aparece en su perfil
+  // público y junto a su nombre en el detalle de sus propiedades.
+  const toggleUserVerify = async (userId, current) => {
+    setBusyId(`user-verify-${userId}`);
+    try {
+      const res  = await fetch(`${API_URL}/api/admin/users/${userId}/verify`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: authHeaders(),
+        body: JSON.stringify({ verified: !current }),
+      });
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, verified: !current } : u));
+        toast({ message: `Usuario ${!current ? "verificado" : "desverificado"}.`, type: "success" });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ message: data.error || "No se pudo actualizar la verificación.", type: "error" });
+      }
+    } catch {
+      toast({ message: "No se pudo conectar con el servidor.", type: "error" });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const removeProperty = async (propId) => {
     if (confirmId !== `prop-${propId}`) { setConfirmId(`prop-${propId}`); return; }
     setConfirmId(null);
@@ -306,13 +332,13 @@ export default function Admin() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-800">
                   <tr>
-                    {["Usuario", "Email", "Rol", "Propiedades", "Acciones"].map((h) => (
+                    {["Usuario", "Email", "Rol", "Verificado", "Propiedades", "Acciones"].map((h) => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {loading && <tr><td colSpan={5} className="text-center py-8 text-gray-400">Cargando...</td></tr>}
+                  {loading && <tr><td colSpan={6} className="text-center py-8 text-gray-400">Cargando...</td></tr>}
                   {!loading && users.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                       <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{u.name}</td>
@@ -328,6 +354,19 @@ export default function Admin() {
                             <option key={r} value={r} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">{r}</option>
                           ))}
                         </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => toggleUserVerify(u.id, u.verified)}
+                          disabled={busyId === `user-verify-${u.id}`}
+                          className={`text-xs font-semibold px-3 py-1 rounded-full transition disabled:opacity-50 ${
+                            u.verified
+                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-300"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
+                          }`}
+                        >
+                          {busyId === `user-verify-${u.id}` ? "..." : u.verified ? "✓ Verificado" : "Sin verificar"}
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u._count?.properties ?? 0}</td>
                       <td className="px-4 py-3">

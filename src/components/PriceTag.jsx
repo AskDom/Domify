@@ -1,4 +1,4 @@
-import { getCurrencySymbol } from "../utils/formatPrice";
+import { getCurrencySymbol, formatPriceEquivalent } from "../utils/formatPrice";
 
 // Reemplaza a formatPrice() en JSX donde el precio va destacado (tarjetas,
 // detalle): el código de moneda se ve chico y liviano — no con el mismo
@@ -14,5 +14,18 @@ export default function PriceTag({ price, currency }) {
       </span>
       {Number(price).toLocaleString()}
     </>
+  );
+}
+
+// "≈ RD$9,000,000" bajo el precio original — la equivalencia en la otra
+// moneda. Solo se renderiza si el padre le pasa `rate` (de useFxRate) para
+// que los lugares donde no interesa (tarjetas, listados) no la muestren.
+export function PriceEquivalent({ price, currency, rate }) {
+  const text = formatPriceEquivalent(price, currency, rate);
+  if (!text) return null;
+  return (
+    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500">
+      {text}
+    </span>
   );
 }
