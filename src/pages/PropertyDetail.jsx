@@ -618,14 +618,15 @@ export default function PropertyDetail() {
                   <MapPin size={13} strokeWidth={2.25} /> {formatLocation(property.city, property.sector)}
                 </p>
 
-                {currentUser ? (
-                  <MapContainer center={[property.lat, property.lng]} zoom={14} className="h-[280px] rounded-2xl">
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                    <Marker position={[property.lat, property.lng]}>
-                      <Popup>{property.title}</Popup>
-                    </Marker>
-                  </MapContainer>
-                ) : (
+                {property.lat != null && property.lng != null ? (
+                  currentUser ? (
+                    <MapContainer center={[property.lat, property.lng]} zoom={14} className="h-[280px] rounded-2xl">
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <Marker position={[property.lat, property.lng]}>
+                        <Popup>{property.title}</Popup>
+                      </Marker>
+                    </MapContainer>
+                  ) : (
                   <div className="relative h-[280px] rounded-2xl overflow-hidden">
                     {/* Mapa real de fondo, desenfocado y sin interacción — el
                         scale-110 evita que se note el borde sin difuminar
@@ -664,6 +665,28 @@ export default function PropertyDetail() {
                           Iniciar sesión →
                         </button>
                       </div>
+                    </div>
+                  </div>
+                  )
+                ) : (
+                  <div className="relative h-[280px] rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-center px-6">
+                    <div>
+                      <div className="w-14 h-14 rounded-2xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                        <MapPin size={22} strokeWidth={2.25} className="text-gray-400" />
+                      </div>
+                      <p className="font-bold text-gray-700 dark:text-gray-300">Ubicación no disponible</p>
+                      <p className="text-sm text-gray-400 mt-1 max-w-xs mx-auto">
+                        Inicia sesión para ver la ubicación de esta propiedad.
+                      </p>
+                      {!currentUser && (
+                        <button
+                          onClick={() => setAuthOpen(true)}
+                          className="mt-4 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-md transition hover:opacity-90"
+                          style={{ background: "linear-gradient(135deg, #1a56db, #0ea5e9)" }}
+                        >
+                          Iniciar sesión →
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
