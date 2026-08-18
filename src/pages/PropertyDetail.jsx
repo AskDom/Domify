@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -52,6 +52,15 @@ const amenityIcons = {
   "Ascensor": "🛗", "Cocina moderna": "🍳", "Parqueo": "🅿️",
 };
 
+const TYPE_MAP   = { APARTAMENTO: "Apartamento", CASA: "Casa", VILLA: "Villa" };
+const STATUS_MAP = { VENTA: "Venta", RENTA: "Renta", VENDIDO: "Vendido", RENTADO: "Rentado" };
+const normalizeProperty = (p) => ({
+  ...p,
+  type:   TYPE_MAP[p.type]     || p.type,
+  status: STATUS_MAP[p.status] || p.status,
+  image:  p.images?.[0] || "",
+});
+
 export default function PropertyDetail() {
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -60,7 +69,36 @@ export default function PropertyDetail() {
   const { currentUser } = useAuth();
   const { sendMessage } = useInbox();
   const { toast } = useToast();
-  const property = allProperties.find((p) => p.id === id || p.id === Number(id));
+
+  const cachedProperty = useMemo(
+    () => allProperties.find((p) => p.id === id || p.id === Number(id)),
+    [allProperties, id]
+  );
+
+  const [directProperty, setDirectProperty] = useState(null);
+  const [loadingDirect, setLoadingDirect]   = useState(false);
+
+  useEffect(() => {
+    if (cachedProperty || !id) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingDirect(true);
+      try {
+        const res  = await fetch(`${API_URL}/api/properties/${id}`, { credentials: "include" });
+        const data = await res.json();
+        if (!cancelled && res.ok && data) {
+          setDirectProperty(normalizeProperty(data));
+        }
+      } catch {
+        // La propiedad no existe o fue eliminada — se muestra el estado de "no encontrada"
+      } finally {
+        if (!cancelled) setLoadingDirect(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [id, cachedProperty]);
+
+  const property = cachedProperty || directProperty;
 
   // El backend devuelve publishedBy como objeto { id, name, avatar } — el
   // email no se expone públicamente por privacidad.
@@ -185,6 +223,15 @@ export default function PropertyDetail() {
     toast({ message: "Mensaje enviado al vendedor ✉️", type: "success" });
     setTimeout(() => setMsgSent(false), 3000);
   };
+
+  if (loadingDirect && !property) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center text-center px-4">
+        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-500 dark:text-gray-400">Cargando propiedad...</p>
+      </div>
+    );
+  }
 
   if (!property) {
     return (
