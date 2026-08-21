@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { useToast } from "../context/ToastContext";
@@ -10,8 +10,21 @@ import Footer from "../components/Footer";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function ResetPassword() {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") || "";
+  // El token viene en el fragment (#token=...) en vez de query param (?token=...).
+  // Los fragments nunca se envían al servidor ni en Referer headers, protegiendo
+  // el token de reseteo contra filtración en logs de acceso o proxies.
+  const [token, setToken] = useState("");
+  const [tokenError, setTokenError] = useState(false);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    const match = hash.match(/[#&]token=([^&]+)/);
+    if (match) {
+      setToken(match[1]);
+    } else {
+      setTokenError(true);
+    }
+  }, []);
   const navigate = useNavigate();
   const { banner } = useToast();
 
@@ -23,7 +36,7 @@ export default function ResetPassword() {
 
   const inputClass = "w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm";
 
-  if (!token) {
+  if (tokenError || !token) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col transition-colors duration-300">
         <Navbar />

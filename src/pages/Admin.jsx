@@ -223,6 +223,10 @@ export default function Admin() {
     }
   };
 
+  // Guard síncrono: antes de montar cualquier efecto o fetch, si el usuario
+  // no es Admin, no renderizamos nada. Esto evita que se disparen llamadas
+  // a /api/admin/* antes de que el useEffect de redirect tenga tiempo de
+  // ejecutarse (race window).
   if (!currentUser || currentUser.role !== "Admin") return null;
 
   const tabs = ["stats", "users", "properties"];

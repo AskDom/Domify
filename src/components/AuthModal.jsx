@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
@@ -37,11 +37,42 @@ const ROLES = [
 
 export default function AuthModal({ isOpen, onClose }) {
   const [isLogin, setIsLogin] = useState(true);
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente", cedula: "" });
   const [showPass, setShowPass] = useState(false);
   const { login, register, error, setError, loading } = useAuth();
   const { banner } = useToast();
   const navigate = useNavigate();
+  const modalRef = useRef(null);
+  const firstInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen && firstInputRef.current) {
+      setTimeout(() => firstInputRef.current?.focus(), 100);
+    }
+  }, [isOpen, isLogin]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key !== "Tab" || !modalRef.current) return;
+    const focusable = modalRef.current.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }, []);
 
   const goToForgotPassword = () => {
     onClose();
@@ -70,15 +101,26 @@ export default function AuthModal({ isOpen, onClose }) {
         setError("Las contraseñas no coinciden");
         return;
       }
+      const needsCedula = form.role === "Vendedor" || form.role === "Agente";
+      if (needsCedula) {
+        if (!form.cedula.trim()) {
+          setError("La cédula es requerida para vendedores y agentes");
+          return;
+        }
+        if (!/^\d{11}$/.test(form.cedula.trim())) {
+          setError("La cédula debe tener exactamente 11 dígitos");
+          return;
+        }
+      }
     }
     setError("");
 
     const user = isLogin
       ? await login({ email: form.email, password: form.password })
-      : await register({ name: form.name, email: form.email, password: form.password, role: form.role });
+      : await register({ name: form.name, email: form.email, password: form.password, role: form.role, cedula: form.cedula.trim() || undefined });
     if (user) {
       onClose();
-      setForm({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente" });
+    setForm({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente", cedula: "" });
       const firstName = user.name?.split(" ")[0] || form.name?.split(" ")[0] || "Usuario";
       banner({
         message: isLogin ? `¡Bienvenido de vuelta, ${firstName}! 👋` : `¡Cuenta creada, ${firstName}! 🎉`,
@@ -92,7 +134,7 @@ export default function AuthModal({ isOpen, onClose }) {
   const switchTab = (toLogin) => {
     setIsLogin(toLogin);
     setError("");
-    setForm({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente" });
+      setForm({ name: "", email: "", password: "", confirmPassword: "", role: "Cliente", cedula: "" });
   };
 
   const inputClass = "w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm";
@@ -107,6 +149,11 @@ export default function AuthModal({ isOpen, onClose }) {
           className="fixed inset-0 z-[2000] flex items-center justify-center p-4"
           style={{ backdropFilter: "blur(8px)", background: "rgba(0,0,0,0.6)" }}
           onClick={(e) => e.target === e.currentTarget && onClose()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="auth-modal-title"
+          ref={modalRef}
+          onKeyDown={handleKeyDown}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 24 }}
@@ -184,6 +231,7 @@ export default function AuthModal({ isOpen, onClose }) {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 10 }}
                       className="text-2xl font-black text-gray-900 dark:text-white"
+                      id="auth-modal-title"
                     >
                       {isLogin ? "Iniciar sesión" : "Crear cuenta"}
                     </motion.h2>
@@ -195,6 +243,7 @@ export default function AuthModal({ isOpen, onClose }) {
                 <button
                   onClick={onClose}
                   className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition text-xl ml-4 mt-1 flex-shrink-0"
+                  aria-label="Cerrar"
                 >×</button>
               </div>
 
@@ -243,74 +292,6 @@ export default function AuthModal({ isOpen, onClose }) {
                     transition={{ duration: 0.2 }}
                     className="space-y-3"
                   >
-                    {!isLogin && (
-                      <div>
-                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Nombre completo</label>
-                        <input
-                          type="text"
-                          placeholder="Juan Pérez"
-                          value={form.name}
-                          onChange={(e) => setForm({ ...form, name: e.target.value })}
-                          className={inputClass}
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Correo electrónico</label>
-                      <input
-                        type="email"
-                        placeholder="tu@email.com"
-                        value={form.email}
-                        onChange={(e) => setForm({ ...form, email: e.target.value })}
-                        className={inputClass}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Contraseña</label>
-                      <div className="relative">
-                        <input
-                          type={showPass ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={form.password}
-                          onChange={(e) => setForm({ ...form, password: e.target.value })}
-                          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                          className={`${inputClass} pr-11`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPass(!showPass)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
-                        >
-                          {showPass ? <EyeOff size={17} strokeWidth={2.25} /> : <Eye size={17} strokeWidth={2.25} />}
-                        </button>
-                      </div>
-                      {isLogin && (
-                        <button
-                          type="button"
-                          onClick={goToForgotPassword}
-                          className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
-                        >
-                          ¿Olvidaste tu contraseña?
-                        </button>
-                      )}
-                    </div>
-
-                    {!isLogin && (
-                      <div>
-                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Confirmar contraseña</label>
-                        <input
-                          type={showPass ? "text" : "password"}
-                          placeholder="••••••••"
-                          value={form.confirmPassword}
-                          onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                          className={inputClass}
-                        />
-                      </div>
-                    )}
-
                     {/* Selector de rol */}
                     {!isLogin && (
                       <div>
@@ -341,6 +322,96 @@ export default function AuthModal({ isOpen, onClose }) {
                             </button>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Campo cédula — solo para Vendedor/Agente */}
+                    {!isLogin && (form.role === "Vendedor" || form.role === "Agente") && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Cédula</label>
+                        <input
+                          type="text"
+                          placeholder="00112345678"
+                          maxLength={11}
+                          value={form.cedula}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                            setForm({ ...form, cedula: v });
+                          }}
+                          className={inputClass}
+                        />
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">11 dígitos sin guiones</p>
+                      </div>
+                    )}
+
+                    {!isLogin && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Nombre completo</label>
+                        <input
+                          ref={firstInputRef}
+                          type="text"
+                          placeholder="Juan Pérez"
+                          value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          className={inputClass}
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Correo electrónico</label>
+                      <input
+                        ref={isLogin ? firstInputRef : undefined}
+                        type="email"
+                        placeholder="tu@email.com"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        className={inputClass}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Contraseña</label>
+                      <div className="relative">
+                        <input
+                          type={showPass ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={form.password}
+                          onChange={(e) => setForm({ ...form, password: e.target.value })}
+                          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                          className={`${inputClass} pr-11`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPass(!showPass)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition"
+                          aria-label={showPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                        >
+                          {showPass ? <EyeOff size={17} strokeWidth={2.25} /> : <Eye size={17} strokeWidth={2.25} />}
+                        </button>
+                      </div>
+                      {isLogin && (
+                        <button
+                          type="button"
+                          onClick={goToForgotPassword}
+                          className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      )}
+                    </div>
+
+                    {!isLogin && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5 block">Confirmar contraseña</label>
+                        <input
+                          type={showPass ? "text" : "password"}
+                          placeholder="••••••••"
+                          value={form.confirmPassword}
+                          onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+                          className={inputClass}
+                        />
                       </div>
                     )}
                   </motion.div>

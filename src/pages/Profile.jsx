@@ -922,6 +922,7 @@ export default function Profile() {
                     { label: "Nombre completo", value: currentUser.name,  icon: "👤" },
                     { label: "Correo",           value: currentUser.email, icon: "📧" },
                     { label: "Tipo de cuenta",   value: roleConfig.label,  icon: "🏷️" },
+                    ...(currentUser.cedula ? [{ label: "Cédula", value: currentUser.cedula, icon: "🪪" }] : []),
                     { label: "ID de usuario",    value: currentUser.id?.slice(0, 8) + "...", icon: "🔑" },
                   ].map((item) => (
                     <div key={item.label} className="flex items-center justify-between py-3 border-b border-gray-50 dark:border-gray-700 last:border-0">

@@ -63,6 +63,7 @@ export default function PropertyCard({ prop, index = 0, toggleFavorite, isFavori
               whileTap={{ scale: 0.9 }}
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 toggleFavorite(prop.id);
                 toast?.({
                   message: isFavorite(prop.id) ? "Eliminado de favoritos" : "Guardado en favoritos ❤️",

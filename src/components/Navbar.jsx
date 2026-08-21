@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, Building2, Heart as HeartLucide, Mail, LogOut, ChevronDown, Bell as BellLucide, Home as HomeLucide, ShieldCheck, Plus, CheckCheck } from "lucide-react";
@@ -80,9 +80,20 @@ export default function Navbar() {
 
   const iconBtn = "relative flex items-center justify-center w-9 h-9 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white transition-all duration-200";
 
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        if (notifOpen) setNotifOpen(false);
+        if (userMenuOpen) setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [notifOpen, userMenuOpen]);
+
   return (
     <>
-      <div className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 shadow-md transition-colors duration-300">
+      <nav aria-label="Navegación principal" className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b-2 border-gray-200 dark:border-gray-700 shadow-md transition-colors duration-300">
         <div className="max-w-screen-2xl mx-auto px-5 py-3 flex items-center gap-4">
 
           {/* LOGO — anclado a la izquierda */}
@@ -99,13 +110,13 @@ export default function Navbar() {
           <div className="flex items-center gap-1">
 
             {/* DARK MODE */}
-            <button onClick={toggleDark} className={iconBtn} title={dark ? "Modo claro" : "Modo oscuro"}>
+            <button onClick={toggleDark} className={iconBtn} title={dark ? "Modo claro" : "Modo oscuro"} aria-label={dark ? "Modo claro" : "Modo oscuro"}>
               {dark ? <SunIcon /> : <MoonIcon />}
             </button>
 
             {/* INBOX */}
             {currentUser && (
-              <Link to="/inbox" className={iconBtn}>
+              <Link to="/inbox" className={iconBtn} aria-label="Bandeja de entrada">
                 <InboxIcon />
                 {unread > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
@@ -121,6 +132,9 @@ export default function Navbar() {
                 <button
                   onClick={() => setNotifOpen((v) => !v)}
                   className={iconBtn}
+                  aria-label="Notificaciones"
+                  aria-expanded={notifOpen}
+                  aria-haspopup="true"
                 >
                   <BellIcon />
                   {unreadNotifs > 0 && (
@@ -194,7 +208,7 @@ export default function Navbar() {
             )}
 
             {/* FAVORITOS */}
-            <Link to="/favorites" className={`${iconBtn} ${favorites.length > 0 ? "text-red-500 dark:text-red-400" : ""}`}>
+            <Link to="/favorites" className={`${iconBtn} ${favorites.length > 0 ? "text-red-500 dark:text-red-400" : ""}`} aria-label="Favoritos">
               <HeartIcon filled={favorites.length > 0} />
               {favorites.length > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
@@ -241,6 +255,8 @@ export default function Navbar() {
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="true"
               >
                 <div className={`p-[2px] rounded-xl bg-gradient-to-br ${roleConfig.bg} shadow-sm`}>
                   {currentUser.avatar ? (
@@ -287,15 +303,15 @@ export default function Navbar() {
                               {currentUser.name.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div className="min-w-0">
-                            <p className="text-sm font-black text-white truncate">{currentUser.name}</p>
-                            <p className="text-[11px] text-white/75 truncate">{currentUser.email}</p>
-                          </div>
-                        </div>
-                        <span className="relative inline-flex items-center gap-1 mt-3 bg-white/20 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                          {roleConfig.emoji} {roleConfig.label}
-                        </span>
-                      </div>
+                           <div className="min-w-0">
+                             <p className="text-sm font-black text-white truncate">{currentUser.name}</p>
+                             <p className="text-[11px] text-white/75 truncate">{currentUser.email}</p>
+                           </div>
+                         </div>
+                         <span className="relative inline-flex items-center gap-1 mt-3 bg-white/20 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                           {roleConfig.emoji} {roleConfig.label}
+                         </span>
+                       </div>
 
                       {/* ITEMS */}
                       <div className="p-1.5">
@@ -328,6 +344,7 @@ export default function Navbar() {
                         <button
                           onClick={() => { logout(); setUserMenuOpen(false); }}
                           className="w-full flex items-center gap-3 px-2.5 py-2 rounded-2xl text-sm font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          aria-label="Cerrar sesión"
                         >
                           <span className="w-8 h-8 rounded-xl flex items-center justify-center bg-red-50 dark:bg-red-900/30 text-red-500">
                             <LogOut size={15} strokeWidth={2.25} />
@@ -353,6 +370,8 @@ export default function Navbar() {
           <button
             className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={menuOpen}
           >
             {menuOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
@@ -439,7 +458,7 @@ export default function Navbar() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </nav>
 
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
     </>

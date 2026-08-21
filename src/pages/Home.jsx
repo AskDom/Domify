@@ -305,8 +305,8 @@ export default function Home() {
                   className="absolute top-full mt-2 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
                 >
                   <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Búsquedas recientes</p>
-                    <button onMouseDown={() => setSearchHistory([])} className="text-xs text-red-400 hover:text-red-600 font-medium">Limpiar</button>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Búsquedas recientes</p>
+                    <button onMouseDown={() => setSearchHistory([])} className="text-xs text-red-500 hover:text-red-600 font-medium">Limpiar</button>
                   </div>
                   {searchHistory.map((term) => (
                     <div
@@ -365,6 +365,7 @@ export default function Home() {
               key={i}
               onClick={() => setHeroIndex(i)}
               className="transition-all rounded-full"
+              aria-label={`Ir a diapositiva ${i + 1}`}
               style={{
                 width: i === heroIndex ? 24 : 8,
                 height: 8,

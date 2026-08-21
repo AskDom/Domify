@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from "react";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { trackPageView } from "./analytics";
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
 
   return (
     <Suspense fallback={<RouteFallback />}>
+    <ErrorBoundary>
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Home /></PageTransition>} />
@@ -67,7 +69,13 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           </PageTransition>
         } />
-        <Route path="/admin" element={<PageTransition><Admin /></PageTransition>} />
+        <Route path="/admin" element={
+          <PageTransition>
+            <ProtectedRoute requiredRole="admin">
+              <Admin />
+            </ProtectedRoute>
+          </PageTransition>
+        } />
         <Route path="/forgot-password" element={<PageTransition><ForgotPassword /></PageTransition>} />
         <Route path="/reset-password" element={<PageTransition><ResetPassword /></PageTransition>} />
         <Route path="/terminos" element={<PageTransition><Terminos /></PageTransition>} />
@@ -76,6 +84,7 @@ function AnimatedRoutes() {
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
     </AnimatePresence>
+    </ErrorBoundary>
     </Suspense>
   );
 }

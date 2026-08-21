@@ -14,6 +14,7 @@ import { useProperties } from "../context/PropertiesContext";
 import { useAuth, CSRF_HEADERS } from "../context/AuthContext";
 import { useInbox } from "../context/InboxContext";
 import ReviewSection from "../components/ReviewSection";
+import MortgageCalculator from "../components/MortgageCalculator";
 import { useToast } from "../context/ToastContext";
 import { formatPrice } from "../utils/formatPrice";
 import PriceTag, { PriceEquivalent } from "../components/PriceTag";
@@ -195,6 +196,15 @@ export default function PropertyDetail() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    if (lightbox === null) return;
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setLightbox(null);
+    };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [lightbox]);
+
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
@@ -341,10 +351,12 @@ export default function PropertyDetail() {
           <button
             onClick={() => setCurrentSlide((currentSlide - 1 + gallery.length) % gallery.length)}
             className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white w-9 h-9 rounded-full flex items-center justify-center transition backdrop-blur-sm"
+            aria-label="Anterior"
           ><ChevronLeft size={20} strokeWidth={2.5} /></button>
           <button
             onClick={() => setCurrentSlide((currentSlide + 1) % gallery.length)}
             className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white w-9 h-9 rounded-full flex items-center justify-center transition backdrop-blur-sm"
+            aria-label="Siguiente"
           ><ChevronRight size={20} strokeWidth={2.5} /></button>
           {/* dots */}
           <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5">
@@ -353,6 +365,7 @@ export default function PropertyDetail() {
                 key={i}
                 onClick={() => setCurrentSlide(i)}
                 className={`rounded-full transition-all ${i === currentSlide ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/50"}`}
+                aria-label={`Ir a imagen ${i + 1}`}
               />
             ))}
           </div>
@@ -404,6 +417,7 @@ export default function PropertyDetail() {
           <button
             onClick={handleShare}
             className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-sm text-gray-700 dark:text-gray-200 px-4 py-2 rounded-full text-sm font-semibold shadow-lg hover:bg-white dark:hover:bg-gray-800 transition flex items-center gap-1.5"
+            aria-label="Compartir"
           >
             {copied ? <><Check size={15} strokeWidth={2.5} className="text-green-500" /> Copiado</> : <><Share2 size={15} strokeWidth={2.25} /> Compartir</>}
           </button>
@@ -416,6 +430,7 @@ export default function PropertyDetail() {
               });
             }}
             className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-sm w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+            aria-label="Guardar en favoritos"
           >
             <Heart
               size={17}
@@ -438,10 +453,11 @@ export default function PropertyDetail() {
             className="fixed inset-0 bg-black/95 z-[999] flex items-center justify-center p-4"
             onClick={() => setLightbox(null)}
           >
-            <button className="absolute top-5 right-5 text-white/60 hover:text-white transition" onClick={() => setLightbox(null)}><X size={30} strokeWidth={2} /></button>
+            <button className="absolute top-5 right-5 text-white/60 hover:text-white transition" onClick={() => setLightbox(null)} aria-label="Cerrar galería"><X size={30} strokeWidth={2} /></button>
             <button
               className="absolute left-4 text-white/60 hover:text-white px-4 py-2 transition"
               onClick={(e) => { e.stopPropagation(); setLightbox((lightbox - 1 + gallery.length) % gallery.length); }}
+              aria-label="Anterior"
             ><ChevronLeft size={44} strokeWidth={1.75} /></button>
             <motion.img
               key={lightbox}
@@ -455,6 +471,7 @@ export default function PropertyDetail() {
             <button
               className="absolute right-4 text-white/60 hover:text-white px-4 py-2 transition"
               onClick={(e) => { e.stopPropagation(); setLightbox((lightbox + 1) % gallery.length); }}
+              aria-label="Siguiente"
             ><ChevronRight size={44} strokeWidth={1.75} /></button>
             <p className="absolute bottom-5 text-white/40 text-sm">{lightbox + 1} / {gallery.length}</p>
           </motion.div>
@@ -792,6 +809,11 @@ export default function PropertyDetail() {
                     >
                       <CalendarPlus size={17} strokeWidth={2.25} /> Agendar una visita
                     </motion.button>
+                  )}
+
+                  {/* CALCULADORA DE HIPOTECA — solo en venta */}
+                  {property.status === "Venta" && (
+                    <MortgageCalculator price={property.price} currency={property.currency} />
                   )}
 
                   {/* BOTONES — WhatsApp (principal) + Compartir (icon-only) en una sola fila */}

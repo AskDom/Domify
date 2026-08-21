@@ -77,14 +77,14 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const register = useCallback(async ({ name, email, password, role }) => {
+  const register = useCallback(async ({ name, email, password, role, cedula }) => {
     setError(""); setLoading(true);
     try {
       const res  = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", ...CSRF_HEADERS },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, cedula }),
       });
       const data = await res.json();
       if (!res.ok) {

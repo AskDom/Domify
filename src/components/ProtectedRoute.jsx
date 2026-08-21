@@ -9,6 +9,12 @@ const ROLE_CONFIG = {
     title: "Solo agentes y vendedores pueden publicar",
     description: "Regístrate como Agente o Vendedor para publicar propiedades en Domify.",
   },
+  admin: {
+    allowed: ["Admin"],
+    icon: "🛡️",
+    title: "Solo administradores pueden acceder",
+    description: "No tienes permiso para acceder a esta sección.",
+  },
 };
 
 export default function ProtectedRoute({ children, requiredRole = "publish" }) {
