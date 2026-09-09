@@ -526,7 +526,8 @@ export default function Home() {
                           {prop.parking > 0 && <span>🚗 {prop.parking}</span>}
                         </div>
                         <a href={`/property/${prop.id}`}
-                          className="block mt-2.5 bg-gray-900 text-white text-center py-2 rounded-xl text-xs font-bold hover:bg-gray-700 transition">
+                          className="block w-full mt-2.5 text-center py-2 rounded-xl text-xs font-bold text-white transition hover:opacity-90"
+                          style={{ backgroundColor: "#2563eb", boxShadow: "0 2px 6px rgba(37,99,235,0.4)" }}>
                           Ver detalles →
                         </a>
                         {!currentUser && (

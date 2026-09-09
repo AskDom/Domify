@@ -70,7 +70,11 @@ function PropertyPopupContent({ prop }) {
       <p className="font-bold text-gray-900 leading-snug">{prop.title}</p>
       <p className="text-blue-600 font-black mt-1"><PriceTag price={prop.price} currency={prop.currency} /></p>
       <p className="text-gray-500 text-xs mt-0.5">{prop.status} · {prop.type}</p>
-      <Link to={`/property/${prop.id}`} className="block mt-2 bg-blue-600 text-white text-center py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition">
+      <Link
+        to={`/property/${prop.id}`}
+        className="block w-full mt-2 text-center py-2 rounded-lg text-xs font-bold text-white transition hover:opacity-90"
+        style={{ backgroundColor: "#2563eb", boxShadow: "0 2px 6px rgba(37,99,235,0.4)" }}
+      >
         Ver detalles →
       </Link>
     </div>
