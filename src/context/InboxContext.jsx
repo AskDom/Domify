@@ -11,6 +11,45 @@ export function InboxProvider({ children }) {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [unreadCount,    setUnreadCount]    = useState(0);
   const socketRef = useRef(null);
+  const soundRef = useRef(null);
+
+  // Sonido de mensaje nuevo: un solo elemento <Audio> reutilizado (resetea el
+  // currentTime y arranca; no recarga el archivo en cada mensaje). Si el
+  // navegador lo bloquea (autoplay policy) o falla, nunca rompe el flujo.
+  const playMessageSound = useCallback(() => {
+    try {
+      if (!soundRef.current) {
+        soundRef.current = new Audio("/sounds/message.wav");
+      }
+      soundRef.current.currentTime = 0;
+      soundRef.current.play().catch(() => {});
+    } catch {
+      // El sonido nunca debe romper el flujo del mensaje.
+    }
+  }, []);
+
+  // Chrome/Safari bloquean audio.play() hasta que el usuario interactuó una
+  // vez con el sitio. Calentamos el elemento en el primer toque/tecla (a
+  // volumen 0, sin blip audible) para que el primer mensaje no quede mudo.
+  useEffect(() => {
+    const unlock = () => {
+      try {
+        const a = soundRef.current || new Audio("/sounds/message.wav");
+        soundRef.current = a;
+        const prevVolume = a.volume;
+        a.volume = 0;
+        a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = prevVolume; }).catch(() => { a.volume = prevVolume; });
+      } catch {
+        // sin sonido peor caso; al user la primera interacción no debe fallar
+      }
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   // ── FETCH ──────────────────────────────────────────────────────────────────
   // El backend pagina con ?limit=&cursor= (keyset sobre createdAt/id). Acá
@@ -90,6 +129,7 @@ export function InboxProvider({ children }) {
         return [msg, ...prev];
       });
       setUnreadCount((n) => n + 1);
+      playMessageSound();
       // Notificación del navegador
       if (Notification.permission === "granted") {
         new Notification(`Nuevo mensaje de ${msg.fromName}`, {
@@ -112,7 +152,7 @@ export function InboxProvider({ children }) {
 
     socketRef.current = socket;
     return () => { socket.disconnect(); socketRef.current = null; };
-  }, [currentUser]);
+  }, [currentUser, playMessageSound]);
 
   // ── PEDIR PERMISO NOTIFICACIONES ───────────────────────────────────────────
   useEffect(() => {
