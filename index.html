@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      CSP pensada para lo que esta SPA realmente usa: Google Fonts, GA4,
+      imágenes de Unsplash/Cloudinary, tiles de OpenStreetMap y el backend
+      propio (API + WebSocket de Socket.IO). connect-src usa %VITE_API_URL%
+      y %VITE_WS_URL% — Vite reemplaza estos placeholders por el valor real
+      de cada env var en build-time (soporte nativo de Vite para env vars en
+      HTML), así que cada entorno queda con su propio dominio exacto en vez
+      de un comodín de esquema ("https:"/"wss:") que dejaría conectar a
+      CUALQUIER host HTTPS — útil como exfiltración si algún día una
+      dependencia de npm comprometida intenta mandar datos afuera.
+      http://localhost:* y ws://localhost:* quedan aparte porque en dev el
+      backend corre sin HTTPS, y porque el HMR de Vite también usa un
+      websocket local en un puerto que no necesariamente coincide con
+      VITE_WS_URL.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' https://www.googletagmanager.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com;
+      img-src 'self' data: https://images.unsplash.com https://res.cloudinary.com https://*.tile.openstreetmap.org;
+      connect-src 'self' %VITE_API_URL% %VITE_WS_URL% http://localhost:* ws://localhost:*;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'self';
+    " />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Domify — Portal inmobiliario dominicano. Encontrá apartamentos, casas y villas en venta o renta en toda República Dominicana."
+    />
+    <link rel="apple-touch-icon" href="/logo192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <!--
+      manifest.json describe la app para cuando se instala en un
+      celular/escritorio. Ver: https://developer.mozilla.org/docs/Web/Manifest
+    -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!--
+      Open Graph / Twitter Card — hoy son estáticos (mismo preview para
+      cualquier URL del sitio). Si más adelante querés que cada propiedad
+      comparta su propia foto/título/precio al pegar el link en WhatsApp,
+      hace falta generarlos por página (react-helmet-async o un endpoint de
+      prerender), porque esta SPA sirve el mismo index.html para todas las
+      rutas y la mayoría de los crawlers de redes sociales no ejecutan JS.
+      og:image usa una ruta relativa — si en algún cliente no carga la
+      imagen del preview, reemplazar por la URL absoluta de producción
+      (ej. https://domify.com/logo512.png).
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Domify" />
+    <meta property="og:title" content="Domify — Portal inmobiliario dominicano" />
+    <meta property="og:description" content="Encontrá apartamentos, casas y villas en venta o renta en toda República Dominicana." />
+    <meta property="og:image" content="/logo512.png" />
+    <meta property="og:locale" content="es_DO" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Domify — Portal inmobiliario dominicano" />
+    <meta name="twitter:description" content="Encontrá apartamentos, casas y villas en venta o renta en toda República Dominicana." />
+    <meta name="twitter:image" content="/logo512.png" />
+
+    <title>Domify — Portal inmobiliario dominicano</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
+  </body>
+</html>

@@ -28,3 +28,15 @@ export function formatPriceShort(price, currency = "USD") {
   if (price >= 1000) return `${symbol}${Math.round(price / 1000)}K`;
   return `${symbol}${price}`;
 }
+
+// Equivalencia en la otra moneda: "≈ RD$9,000,000" bajo "US$150,000". Es un
+// valor orientativo para quien lee la moneda extranjera mejor en pesos (o
+// viceversa) — la tasa viene de GET /api/rates vía useFxRate, nunca del
+// cliente como dato de venta.
+export function formatPriceEquivalent(price, currency = "USD", rate = 60) {
+  if (!rate || rate <= 0) return null;
+  if (currency === "USD") {
+    return `≈ ${SYMBOL.DOP}${Math.round(price * rate).toLocaleString()}`;
+  }
+  return `≈ ${SYMBOL.USD}${Math.round(price / rate).toLocaleString()}`;
+}

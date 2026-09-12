@@ -1,4 +1,4 @@
-const GA_ID = process.env.REACT_APP_GA_MEASUREMENT_ID;
+const GA_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
 
 let initialized = false;
 
